@@ -68,9 +68,14 @@ message(paste(nrow(sig), "rows among significant results"))
 message("Reading in sig. results...done!")
 
 message("Reading in SNP list in the full files...")
-snp_list  <- arrow::open_dataset(list.files(args$eqtl_folder, recursive = TRUE, full.names = TRUE)[1])
+
+gene <- list.files(args$eqtl_folder)[1]
+snp_list  <- arrow::open_dataset(list.files(paste0(args$eqtl_folder, "/", gene), full.names = TRUE))
+
 snp_list <- snp_list %>% select(variant) %>% collect() %>% as.data.table()
 message("Reading in SNP list in the full files...done!")
+
+message(nrow(snp_list))
 
 message("Reading in reference...")
 ref <- arrow::open_dataset(args$reference)
@@ -78,6 +83,8 @@ ref <- arrow::open_dataset(args$reference)
 ref <- ref %>% 
     filter(ID %in% !!snp_list$variant) %>% 
     collect()
+
+message(nrow(ref))
 
 ref <- data.table(ref, key = "ID")
 ref <- ref[, c(1, 5, 2, 3, 4), with = FALSE]

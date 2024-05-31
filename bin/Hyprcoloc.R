@@ -196,6 +196,7 @@ if (locus == 1){
   message("Reading pheno manifest file...")
 
   pheno_manifest <- fread(args$pheno_manifest)
+  pheno_manifest2 <- pheno_manifest
   pheno_manifest <- pheno_manifest[, c(1, 3), with = FALSE]
   pheno_manifest$num_type <- NA
   pheno_manifest <- as.data.frame(pheno_manifest)
@@ -276,6 +277,12 @@ rm(res)
 gc()
 }
 }
+
+message("Adding phenotype annotations...")
+res_final <- merge(res_final, pheno_manifest2[, c(1, 2), with = FALSE], by.x = "traits", by.y = "phenotype")
+res_final <- res_final[, c(2:12, 1, ncol(res_final), 13:(ncol(res_final) - 1)), with = FALSE]
+res_final <- res_final[order(type, lead_SNP_chr, lead_SNP_pos, traits)]
+message("Adding phenotype annotations...done!")
 
 message("Writing output...")
 fwrite(res_final, paste0(gene, "_coloc.txt"), sep = "\t")
