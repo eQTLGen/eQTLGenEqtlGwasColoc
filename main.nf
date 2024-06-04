@@ -40,6 +40,7 @@ Optional arguments:
 --i2_thresh                 Heterogeneity threshold. Defaults to 40 (<40%).
 --maxN_thresh               Per gene maximal sample size threshold to include variants. Defaults to 0.8 (SNPs with >=0.8*max(N))
 --minN_thresh               Minimal sample size threshold. Defaults to 0 (no filtering).
+--gene_filter               File to filter the genes included to the analysis. File with ENSG IDs, no header. Defaults that no filtering done.
 
 """.stripIndent()
 
@@ -59,6 +60,7 @@ params.p_thresh = 5e-8
 params.i2_thresh = 40
 params.maxN_thresh = 0.8
 params.minN_thresh = 0
+params.gene_filter = 'data/help_input.txt'
 
 
 //Show parameter values
@@ -89,6 +91,7 @@ summary['P threshold']                              = params.p_thresh
 summary['I2 threshold']                             = params.i2_thresh
 summary['maxN threshold']                           = params.maxN_thresh
 summary['minN threshold']                           = params.minN_thresh
+summary['Gene filter']                              = params.gene_filter
 
 // import modules
 include { MAKELOCI; COLOC; MakeLoci; Coloc } from './modules/EqtlGwasColocalisation.nf'
@@ -104,6 +107,7 @@ gwas_manifest_ch = Channel.fromPath(params.gwas_manifest, type: 'file').ifEmpty 
 sig_ch = Channel.fromPath(params.sig_eqtls).ifEmpty { exit 1, "Sig. eQTL files not found!" }
 allele_ch = Channel.fromPath(params.allele_info).ifEmpty { exit 1, "eQTLGen reference not found!" }
 gtf_ch = Channel.fromPath(params.gtf).ifEmpty { exit 1, "GTF not found!" }
+filter_ch = Channel.fromPath(params.gene_filter)
 
 input_ch = sig_ch.combine(empirical_ch).combine(gwas_ch).combine(gwas_manifest_ch).combine(allele_ch).combine(gtf_ch)
 
@@ -116,7 +120,7 @@ maxN_thresh = Channel.value(params.maxN_thresh)
 minN_thresh = Channel.value(params.minN_thresh)
 
 input_ch = input_ch.combine(leadvar_window).combine(cis_window).combine(trans_window)
-.combine(p_thresh).combine(i2_thresh).combine(maxN_thresh).combine(minN_thresh)
+.combine(p_thresh).combine(i2_thresh).combine(maxN_thresh).combine(minN_thresh).combine(filter_ch)
 
 
 workflow {

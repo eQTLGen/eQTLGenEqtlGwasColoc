@@ -33,6 +33,8 @@ parser$add_argument('--maxN_thresh', type = 'numeric', default = 0.8,
                     help = 'Per gene maximal sample size threshold. Defaults to 0.8 (SNPs with >=0.8*max(N))')
 parser$add_argument('--minN_thresh', type = 'numeric', default = 0,
                     help = 'Minimal sample size threshold. Defaults to 0 (no filtering)')
+parser$add_argument('--gene_filter', metavar = 'file', type = 'character',
+                    help = "Filter with ENSEMBL IDs to include to the analysis.")
 # parser$add_argument('--max_lead_distance', type = 'numeric', default = 250000,
 #                     help = 'Maximum distance between primary cis and trans lead variants.')
 
@@ -50,6 +52,15 @@ args <- parser$parse_args()
 message("Reading in sig. results...")
 sig <- fread(args$sig_res, key = "SNP")
 sig <- sig[P < args$p_thresh & (i_squared < args$i2_thresh | is.na(i_squared))]
+
+# gene filter
+gene_filter <- fread(args$gene_filter, header = FALSE)
+colnames(gene_filter)[1] <- "gene"
+if (nrow(gene_filter) > 0){
+
+    sig <- sig[phenotype %in% gene_filter$gene]
+
+}
 
 message("Filter results to genes available in full files...")
 eqtl_genes <- str_replace(list.files(args$eqtl), ".*phenotype=", "")

@@ -6,7 +6,7 @@ process MakeLoci {
     publishDir "${params.OutputDir}", mode: 'copy', overwrite: true, pattern: "eQtlLead*"
 
     input:
-        tuple path(sig_res), path(eqtls), path(gwas), path(gwas_manifest), path(ref), path(gtf), val(lead_variant_win), val(cis_win), val(trans_win), val(p_thresh), val(i2), val(maxN), val(minN)
+        tuple path(sig_res), path(eqtls), path(gwas), path(gwas_manifest), path(ref), path(gtf), val(lead_variant_win), val(cis_win), val(trans_win), val(p_thresh), val(i2), val(maxN), val(minN), path(gene_filter)
 
     output:
        path("ENSG*.txt.gz")
@@ -24,13 +24,14 @@ process MakeLoci {
         --p_thresh ${p_thresh} \
         --i2_thresh ${i2} \
         --maxN_thresh ${maxN} \
-        --minN_thresh ${minN}
+        --minN_thresh ${minN} \
+        --gene_filter ${gene_filter}
         """
 }
 
 process Coloc {
     input:
-        tuple path(sig_res), path(eqtls), path(gwas), path(gwas_manifest), path(ref), path(gtf), val(lead_variant_win), val(cis_win), val(trans_win), val(p_thresh), val(i2), val(maxN), val(minN), path(loci)
+        tuple path(sig_res), path(eqtls), path(gwas), path(gwas_manifest), path(ref), path(gtf), val(lead_variant_win), val(cis_win), val(trans_win), val(p_thresh), val(i2), val(maxN), val(minN), path(gene_filter), path(loci)
 
     output:
         path("*_coloc.txt")
