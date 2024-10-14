@@ -37,7 +37,7 @@ Optional arguments:
 --cis_window                cis-eQTL window. Defaults to 1000000.
 --trans_window              trans-eQTL window. Defaults to 5000000.
 --p_thresh                  P-value threshold for significant eQTL effects. Defaults to 5e-8.
---i2_thresh                 Heterogeneity threshold. Defaults to 40 (<40%).
+--i2_thresh                 Heterogeneity threshold. Defaults to 100 (<=100%).
 --maxN_thresh               Per gene maximal sample size threshold to include variants. Defaults to 0.8 (SNPs with >=0.8*max(N))
 --minN_thresh               Minimal sample size threshold. Defaults to 0 (no filtering).
 --gene_filter               File to filter the genes included to the analysis. File with ENSG IDs, no header. Defaults that no filtering done.
@@ -57,7 +57,7 @@ params.leadvar_window = 1000000
 params.cis_window = 1000000
 params.trans_window = 5000000
 params.p_thresh = 5e-8
-params.i2_thresh = 40
+params.i2_thresh = 100
 params.maxN_thresh = 0.8
 params.minN_thresh = 0
 params.gene_filter = 'data/help_input.txt'
@@ -126,7 +126,7 @@ input_ch = input_ch.combine(leadvar_window).combine(cis_window).combine(trans_wi
 workflow {
         MAKELOCI(input_ch)
         
-        coloc_input_ch = input_ch.combine(MAKELOCI.out.flatten())
+        coloc_input_ch = input_ch.combine(MAKELOCI.out.map { it[0] }.flatten())
         
         COLOC(coloc_input_ch)
         COLOC.out.collectFile(name: 'EqtlGwasColocResults.txt', keepHeader: true, sort: true, storeDir: "${params.OutputDir}")

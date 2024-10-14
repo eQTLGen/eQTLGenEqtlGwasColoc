@@ -34,14 +34,6 @@ help = 'Output file.')
 
 args <- parser$parse_args()
 
-#TEMP
-# args <- list(loci = "/Users/urmovosa/Documents/projects/2019/eQTLGenPhase2_pipelines/eQTLGenEqtlGwasColoc/work/82/7c0de0b3c8b918cd8f9ceb5038137b/ENSG00000140932.txt.gz", 
-# eqtl_folder = "/Users/urmovosa/Documents/projects/2019/eQTLGenPhase2_pipelines/eQTLGenEqtlGwasColoc/work/82/7c0de0b3c8b918cd8f9ceb5038137b/eqtls/", 
-# gwas_folder = "/Users/urmovosa/Documents/projects/2019/eQTLGenPhase2_pipelines/eQTLGenEqtlGwasColoc/work/82/7c0de0b3c8b918cd8f9ceb5038137b/neale_ukb_sumstats_parquet",
-# gtf = "/Users/urmovosa/Documents/projects/2019/eQTLGenPhase2_pipelines/eQTLGenEqtlGwasColoc/work/82/7c0de0b3c8b918cd8f9ceb5038137b/Homo_sapiens.GRCh38.108.gtf.gz", 
-# i2_thresh = 40, maxN_thresh = 0.8, minN_thresh = 6000, 
-# pheno_manifest = "")
-
 # Functions
 ParseInput <- function(eqtl_database, locus_input, gwas_database){
 
@@ -86,9 +78,11 @@ ParseInput <- function(eqtl_database, locus_input, gwas_database){
   # TODO: these are hardcoded, make those explicit
   message("Reading GWAS parquet file...")
   gwas <- gwas_database %>% 
-    filter(ID %in% snps & info > 0.4) %>% 
-    select(gwas_id, ID, beta, se) %>% 
+    filter(ID %in% snps) %>% 
+    select(gwas_id, ID, beta, standard_error) %>% 
     collect()
+  
+  colnames(gwas)[4] <- "se"
 
   gwas <- gwas %>% 
     group_by(gwas_id) %>% 
@@ -104,6 +98,7 @@ ParseInput <- function(eqtl_database, locus_input, gwas_database){
   gwas_beta <- gwas[, c(1:3), with = FALSE]
   gwas_beta <- pivot_wider(gwas_beta, names_from = "gwas_id", values_from = "beta")
   colnames(gwas_beta)[1] <- "variant"
+  message(paste("Parsed", ncol(gwas_beta), "GWAS files."))
   # se file
   gwas_se <- gwas[, c(1:2, 4), with = FALSE]
   gwas_se <- pivot_wider(gwas_se, names_from = "gwas_id", values_from = "se")
@@ -159,6 +154,8 @@ message("Reading eQTL database...done!")
 
 message("Reading GWAS database...")
 gwas_input <- arrow::open_dataset(args$gwas_folder)
+temp <- gwas_input %>% group_by(gwas_id) %>% summarise(nr_snps = n()) %>% collect()
+message(paste("Nr. of GWASs: ", length(temp$gwas_id)))
 message("Reading GWAS database...done!")
 
 res_final <- data.table(
@@ -192,6 +189,8 @@ print(temp_loci[locus])
 inputs <- ParseInput(eqtl_database = eqtls_input, locus_input = temp_loci[locus], gwas_database = gwas_input)
   message("Parsing inputs...done!")
 
+message(print(colnames(inputs$betas)[-1]))
+
 if (locus == 1){
   message("Reading pheno manifest file...")
 
@@ -224,6 +223,7 @@ if (ncol(betas) > 1) {
 ############################
 
 trait_names <- colnames(betas)
+print(trait_names)
 
 # Remove rows where SE is 0
 # TODO: check why such variants are in the results
@@ -257,7 +257,7 @@ res <- data.table(eQTL_gene = gene,
                   as.data.table(res)
                   )
 
-res <- res[res$traits != "None", ]
+res <- res[res$traits != "None" & str_detect(res$traits, "ENSG"), ]
 
 message("Splitting traits to separate rows...")
 

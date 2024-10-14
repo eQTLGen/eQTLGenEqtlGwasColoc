@@ -9,7 +9,7 @@ process MakeLoci {
         tuple path(sig_res), path(eqtls), path(gwas), path(gwas_manifest), path(ref), path(gtf), val(lead_variant_win), val(cis_win), val(trans_win), val(p_thresh), val(i2), val(maxN), val(minN), path(gene_filter)
 
     output:
-       path("ENSG*.txt.gz")
+        tuple path("ENSG*.txt.gz"), path("eQtlLead*")
 
     script:
         """

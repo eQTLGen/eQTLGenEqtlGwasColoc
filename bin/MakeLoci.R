@@ -27,8 +27,8 @@ parser$add_argument('--trans_win', type = 'numeric', default = 5000000,
                     help = 'Distance threshold to declare variant trans.')
 parser$add_argument('--p_thresh', type = 'numeric', default = 5e-8,
                     help = 'P-value threshold for significant effects.')
-parser$add_argument('--i2_thresh', type = 'numeric', default = 40,
-                    help = 'Heterogeneity threshold. Defaults to <40%.')
+parser$add_argument('--i2_thresh', type = 'numeric', default = 100,
+                    help = 'Heterogeneity threshold. Defaults to <=100%.')
 parser$add_argument('--maxN_thresh', type = 'numeric', default = 0.8,
                     help = 'Per gene maximal sample size threshold. Defaults to 0.8 (SNPs with >=0.8*max(N))')
 parser$add_argument('--minN_thresh', type = 'numeric', default = 0,
@@ -51,10 +51,12 @@ args <- parser$parse_args()
 
 message("Reading in sig. results...")
 sig <- fread(args$sig_res, key = "SNP")
-sig <- sig[P < args$p_thresh & (i_squared < args$i2_thresh | is.na(i_squared))]
+sig <- sig[P < args$p_thresh & (i_squared <= args$i2_thresh | is.na(i_squared))]
+
+message(nrow(sig))
 
 # gene filter
-gene_filter <- fread(args$gene_filter, header = FALSE)
+gene_filter <- fread(args$gene_filter, header = TRUE)
 colnames(gene_filter)[1] <- "gene"
 if (nrow(gene_filter) > 0){
 
