@@ -85,7 +85,7 @@ message("Reading in SNP list in the full files...")
 gene <- list.files(args$eqtl_folder)[1]
 snp_list  <- arrow::open_dataset(list.files(paste0(args$eqtl_folder, "/", gene), full.names = TRUE))
 
-snp_list <- snp_list %>% select(variant) %>% collect() %>% as.data.table()
+snp_list <- snp_list %>% select(variant_index) %>% collect() %>% as.data.table()
 message("Reading in SNP list in the full files...done!")
 
 message(nrow(snp_list))
@@ -94,24 +94,24 @@ message("Reading in reference...")
 ref <- arrow::open_dataset(args$reference)
 
 ref <- ref %>% 
-    filter(ID %in% !!snp_list$variant) %>% 
+    filter(variant_index %in% !!snp_list$variant_index) %>% 
     collect()
 
 message(nrow(ref))
 
-ref <- data.table(ref, key = "ID")
-ref <- ref[, c(1, 5, 2, 3, 4), with = FALSE]
+ref <- data.table(ref, key = "variant_index")
+ref <- ref[, c(6, 3, 2, 4, 5), with = FALSE]
 message("Reading in reference...done!")
 
-sig <- merge(sig, ref[, c(1:3), with = FALSE], by.x = "SNP", by.y = "ID")
+sig <- merge(sig, ref[, c(1:3), with = FALSE], by = "variant_index")
 message(paste(nrow(sig), "rows among significant results, after merging with reference"))
 
 message("Finding lead variants for each gene...")
 LeadVariants <- sig %>% 
     group_by(phenotype) %>% 
     group_modify(~ IdentifyLeadSNPs(.x, 
-    snp_id_col = "SNP", 
-    snp_chr_col = "CHR", 
+    snp_id_col = "variant_index", 
+    snp_chr_col = "chromosome", 
     snp_pos_col = "bp", 
     eff_all_col = "alt_all", 
     other_all_col = "ref_all",
@@ -164,7 +164,7 @@ fwrite(summary_per_gene, "eQtlLeadSummary.txt.gz", sep = "\t")
 
 message("Annotating lead variants cis/trans...done!")
 
-ref <- data.table(SNP = ref$ID, chr = ref$CHR, start = ref$bp, 
+ref <- data.table(SNP = ref$variant_index, chr = ref$chromosome, start = ref$bp, 
 end = ref$bp + 1)
 ref$chr <- as.factor(ref$chr)
 setkey(ref, chr, start, end)

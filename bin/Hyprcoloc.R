@@ -22,8 +22,8 @@ parser$add_argument('--gtf', metavar = 'file', type = 'character',
                     help = "ENSEMBL .gtf file, needs to be hg38.")
 parser$add_argument('--pheno_manifest', metavar = 'file', type = 'character',
                     help = "UKBB phenotype description file.")
-parser$add_argument('--i2_thresh', type = 'numeric', default = 40,
-                    help = 'Heterogeneity threshold. Defaults to <40%.')
+parser$add_argument('--i2_thresh', type = 'numeric', default = 100,
+                    help = 'Heterogeneity threshold. Defaults to <=100%.')
 parser$add_argument('--maxN_thresh', type = 'numeric', default = 0.8,
                     help = 'Per gene maximal sample size threshold. Defaults to 0.8 (SNPs with >=0.8*max(N))')
 parser$add_argument('--minN_thresh', type = 'numeric', default = 0,
@@ -53,7 +53,7 @@ ParseInput <- function(eqtl_database, locus_input, gwas_database){
   message("Reading eQTL parquet file...")
 
   eqtls <- eqtl_database %>% 
-  filter(variant %in% snps) %>% 
+  filter(variant_index %in% snps) %>% 
   collect() %>%
   filter((i_squared < args$i2_thresh | is.na(i_squared)) & 
   sample_size >= args$maxN_thresh * max(sample_size) & 
@@ -75,7 +75,7 @@ ParseInput <- function(eqtl_database, locus_input, gwas_database){
   gc()
 
   # Read in GWAS sumstats
-  # TODO: these are hardcoded, make those explicit
+  # TODO: fix to new GWAS format!
   message("Reading GWAS parquet file...")
   gwas <- gwas_database %>% 
     filter(ID %in% snps) %>% 
@@ -184,12 +184,8 @@ for (locus in 1:nrow(temp_loci)){
   message(paste0("Analysing ", locus, "/", nrow(temp_loci), " locus..."))
   message("Parsing inputs...")
 
-print(temp_loci[locus])
-
 inputs <- ParseInput(eqtl_database = eqtls_input, locus_input = temp_loci[locus], gwas_database = gwas_input)
   message("Parsing inputs...done!")
-
-message(print(colnames(inputs$betas)[-1]))
 
 if (locus == 1){
   message("Reading pheno manifest file...")
