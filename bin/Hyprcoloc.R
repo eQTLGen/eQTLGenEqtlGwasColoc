@@ -18,10 +18,10 @@ parser$add_argument('--eqtl_folder', metavar = 'file', type = 'character',
 help = 'eQTLGen parquet folder format with per gene output files.')
 parser$add_argument('--gwas_folder', metavar = 'file', type = 'character', 
 help = 'GWAS parquet folder format with per phenotype GWAS sumstats files.')
+parser$add_argument('--pheno_manifest', metavar = 'file', type = 'character', 
+help = 'GWAS manifest file, specifying if phenoytpye is continuous or case-control.')
 parser$add_argument('--gtf', metavar = 'file', type = 'character',
                     help = "ENSEMBL .gtf file, needs to be hg38.")
-parser$add_argument('--pheno_manifest', metavar = 'file', type = 'character',
-                    help = "UKBB phenotype description file.")
 parser$add_argument('--i2_thresh', type = 'numeric', default = 100,
                     help = 'Heterogeneity threshold. Defaults to <=100%.')
 parser$add_argument('--maxN_thresh', type = 'numeric', default = 0.8,
@@ -78,15 +78,15 @@ ParseInput <- function(eqtl_database, locus_input, gwas_database){
   # TODO: fix to new GWAS format!
   message("Reading GWAS parquet file...")
   gwas <- gwas_database %>% 
-    filter(ID %in% snps) %>% 
-    select(gwas_id, ID, beta, standard_error) %>% 
+    filter(variant_index %in% snps) %>% 
+    select(gwas_id, variant_index, beta, se) %>% 
     collect()
   
   colnames(gwas)[4] <- "se"
 
   gwas <- gwas %>% 
     group_by(gwas_id) %>% 
-    distinct(ID, .keep_all = TRUE) %>%
+    distinct(variant_index, .keep_all = TRUE) %>%
     ungroup() %>% 
     as.data.table()
 
@@ -188,20 +188,26 @@ inputs <- ParseInput(eqtl_database = eqtls_input, locus_input = temp_loci[locus]
   message("Parsing inputs...done!")
 
 if (locus == 1){
-  message("Reading pheno manifest file...")
+message("Reading pheno manifest file...")
 
-  pheno_manifest <- fread(args$pheno_manifest)
-  pheno_manifest2 <- pheno_manifest
-  pheno_manifest <- pheno_manifest[, c(1, 3), with = FALSE]
-  pheno_manifest$num_type <- NA
-  pheno_manifest <- as.data.frame(pheno_manifest)
-  pheno_manifest[pheno_manifest$variable_type %in% c("continuous_raw", "continuous_irnt", "categorical", "ordinal"), ]$num_type <- 0
-  pheno_manifest[pheno_manifest$variable_type %in% c("binary"), ]$num_type <- 1
-  pheno_manifest <- pheno_manifest[pheno_manifest$phenotype %in% colnames(inputs$betas)[-1], -2]
+pheno_manifest <- fread(args$pheno_manifest)
+pheno_manifest2 <- pheno_manifest
 
-  pheno_manifest <- pheno_manifest[match(colnames(inputs$betas)[-1], pheno_manifest$phenotype), ]$num_type
-  message(paste(length(pheno_manifest[pheno_manifest == 0]), "continuous traits and", length(pheno_manifest[pheno_manifest == 1]), "binary traits."))
-  message("Reading pheno manifest file...done!")
+pheno_manifest$num_type <- NA
+pheno_manifest <- as.data.frame(pheno_manifest)
+if (nrow(pheno_manifest[pheno_manifest$variable_type %in% c("continuous", "continuous_raw", "continuous_irnt", "categorical", "ordinal"), ]) > 0){
+  pheno_manifest[pheno_manifest$variable_type %in% c("continuous", "continuous_raw", "continuous_irnt", "categorical", "ordinal"), ]$num_type <- 0
+}
+if (nrow(pheno_manifest[pheno_manifest$variable_type %in% c("binary"), ]) > 0){
+pheno_manifest[pheno_manifest$variable_type %in% c("binary"), ]$num_type <- 1
+}
+pheno_manifest <- pheno_manifest[pheno_manifest$phenotype %in% colnames(inputs$betas)[-1], -2]
+
+
+message(pheno_manifest)
+pheno_manifest <- pheno_manifest[match(colnames(inputs$betas)[-1], pheno_manifest$phenotype), ]$num_type
+message(paste(length(pheno_manifest[pheno_manifest == 0]), "continuous traits and", length(pheno_manifest[pheno_manifest == 1]), "binary traits."))
+message("Reading pheno manifest file...done!")
 }
 
 gene <- colnames(inputs$betas)[1]
@@ -234,7 +240,7 @@ res <- hyprcoloc(betas[any_row_contains_zero, ],
                  ses[any_row_contains_zero, ], 
                  trait.names = colnames(betas), 
                  snp.id = rownames(betas[any_row_contains_zero, ]),
-                 binary.outcomes = pheno_manifest
+                 binary.outcomes = c(0, pheno_manifest)
                  )  
 
 message("Running hyprcoloc analysis...done!")
@@ -275,8 +281,8 @@ gc()
 }
 
 message("Adding phenotype annotations...")
-res_final <- merge(res_final, pheno_manifest2[, c(1, 2), with = FALSE], by.x = "traits", by.y = "phenotype")
-res_final <- res_final[, c(2:12, 1, ncol(res_final), 13:(ncol(res_final) - 1)), with = FALSE]
+res_final <- merge(res_final, pheno_manifest2, by.x = "traits", by.y = "phenotype")
+res_final <- res_final[, c(2:14, 1), with = FALSE]
 res_final <- res_final[order(type, lead_SNP_chr, lead_SNP_pos, traits)]
 message("Adding phenotype annotations...done!")
 
