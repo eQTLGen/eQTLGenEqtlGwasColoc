@@ -176,7 +176,8 @@ regional_prob = NA,
 candidate_snp = NA,
 posterior_explained_by_snp = NA,
 dropped_trait = NA,
-nr_snps_included = NA
+nr_snps_included = NA,
+analysed_traits = NA
 )[-1]
 
 
@@ -229,17 +230,30 @@ print(trait_names)
 
 # Remove rows where SE is 0
 # TODO: check why such variants are in the results
-any_row_contains_zero <- apply(ses, 1, function(row) !any(row == 0 | is.na(row)))
+message("Cleaning data to remove NAs and zeros...")
 
-if(any(is.na(betas))){message("NAs in the beta table!")}
-if(any(is.na(ses))){message("NAs in the se table!")}
+na_fraction <- apply(betas, 2, function(x){fraction_nas <- length(x[is.na(x)])/length(x); return(fraction_nas)})
+message("Fraction of missing values:")
+print(na_fraction)
+
+message("Remove phenotypes which have >20% of missing values:")
+print(na_fraction[na_fraction > 0.2])
+
+remove_pheno <- names(na_fraction[na_fraction > 0.2])
+betas <- betas[, !colnames(betas) %in% remove_pheno]
+ses <- ses[, !colnames(ses) %in% remove_pheno]
+
+any_row_contains_zero <- apply(ses, 1, function(row) !any(row == 0 | is.na(row)))
+betas <- betas[any_row_contains_zero, ]
+ses <- ses[any_row_contains_zero, ]
+
+message("Cleaning data to remove NAs and zeros...done!")
 
 message("Running hyprcoloc analysis...")
-
-res <- hyprcoloc(betas[any_row_contains_zero, ], 
-                 ses[any_row_contains_zero, ], 
+res <- hyprcoloc(betas, 
+                 ses, 
                  trait.names = colnames(betas), 
-                 snp.id = rownames(betas[any_row_contains_zero, ]),
+                 snp.id = rownames(betas),
                  binary.outcomes = c(0, pheno_manifest)
                  )  
 
@@ -256,7 +270,8 @@ res <- data.table(eQTL_gene = gene,
                   lead_SNP_nea = temp_loci$nea[locus],
                   lead_SNP_beta = temp_loci$beta[locus],
                   lead_SNP_se = temp_loci$se[locus],
-                  as.data.table(res)
+                  as.data.table(res),
+                  analysed_traits = paste0(colnames(betas))
                   )
 
 res <- res[res$traits != "None" & str_detect(res$traits, "ENSG"), ]
@@ -282,7 +297,7 @@ gc()
 
 message("Adding phenotype annotations...")
 res_final <- merge(res_final, pheno_manifest2, by.x = "traits", by.y = "phenotype")
-res_final <- res_final[, c(2:14, 1), with = FALSE]
+res_final <- res_final[, c(2:15, 1), with = FALSE]
 res_final <- res_final[order(type, lead_SNP_chr, lead_SNP_pos, traits)]
 message("Adding phenotype annotations...done!")
 
