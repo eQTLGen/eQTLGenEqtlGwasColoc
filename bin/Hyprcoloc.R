@@ -205,9 +205,11 @@ pheno_manifest[pheno_manifest$variable_type %in% c("binary"), ]$num_type <- 1
 pheno_manifest <- pheno_manifest[pheno_manifest$phenotype %in% colnames(inputs$betas)[-1], -2]
 
 
-message(pheno_manifest)
-pheno_manifest <- pheno_manifest[match(colnames(inputs$betas)[-1], pheno_manifest$phenotype), ]$num_type
-message(paste(length(pheno_manifest[pheno_manifest == 0]), "continuous traits and", length(pheno_manifest[pheno_manifest == 1]), "binary traits."))
+print(pheno_manifest)
+pheno_manifest <- pheno_manifest[match(colnames(inputs$betas)[-1], pheno_manifest$phenotype), ]
+print(pheno_manifest)
+message(paste(length(pheno_manifest[pheno_manifest$num_type == 0, ]$num_type), "continuous traits and", length(pheno_manifest[pheno_manifest$num_type == 1, ]$num_type), "binary traits."))
+print(pheno_manifest)
 message("Reading pheno manifest file...done!")
 }
 
@@ -247,6 +249,7 @@ any_row_contains_zero <- apply(ses, 1, function(row) !any(row == 0 | is.na(row))
 betas <- betas[any_row_contains_zero, ]
 ses <- ses[any_row_contains_zero, ]
 
+print(pheno_manifest)
 message("Cleaning data to remove NAs and zeros...done!")
 
 message("Running hyprcoloc analysis...")
@@ -254,7 +257,7 @@ res <- hyprcoloc(betas,
                  ses, 
                  trait.names = colnames(betas), 
                  snp.id = rownames(betas),
-                 binary.outcomes = c(0, pheno_manifest)
+                 binary.outcomes = c(0, pheno_manifest[pheno_manifest$phenotype %in% colnames(betas), ]$num_type)
                  )  
 
 message("Running hyprcoloc analysis...done!")
@@ -271,7 +274,7 @@ res <- data.table(eQTL_gene = gene,
                   lead_SNP_beta = temp_loci$beta[locus],
                   lead_SNP_se = temp_loci$se[locus],
                   as.data.table(res),
-                  analysed_traits = paste0(colnames(betas))
+                  analysed_traits = paste(colnames(betas), collapse = ", ")
                   )
 
 res <- res[res$traits != "None" & str_detect(res$traits, "ENSG"), ]
@@ -297,7 +300,7 @@ gc()
 
 message("Adding phenotype annotations...")
 res_final <- merge(res_final, pheno_manifest2, by.x = "traits", by.y = "phenotype")
-res_final <- res_final[, c(2:15, 1), with = FALSE]
+res_final <- res_final[, c(2:15, 1, 19), with = FALSE]
 res_final <- res_final[order(type, lead_SNP_chr, lead_SNP_pos, traits)]
 message("Adding phenotype annotations...done!")
 
